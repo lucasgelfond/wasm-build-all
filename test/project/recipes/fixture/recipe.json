@@ -1,0 +1,11 @@
+{
+  "name": "fixture",
+  "version": "0",
+  "description": "ctest fixture for wasm-build-all's own tests: pass, a data file, threads, WILL_FAIL, SKIP_RETURN_CODE.",
+  "source": { "path": "src" },
+  "requires": [],
+  "basedOn": "own recipe",
+  "effort": { "build": "easy", "tests": "easy", "notes": "" },
+  "tests": "5 ctest entries; expected everywhere: 4 pass, 1 skipped.",
+  "skipped": "skipped: SKIP_RETURN_CODE 77 by design"
+}

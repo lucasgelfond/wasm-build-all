@@ -1,0 +1,11 @@
+{
+  "name": "wasm-build-all",
+  "version": "0.1.0",
+  "description": "Build C/C++ libraries to wasm64 in three flavours (threads+JSPI, single-threaded JSPI, ASYNCIFY) and run their upstream test suites against the wasm build under node and in Chromium, Firefox and WebKit, next to a native baseline.",
+  "bin": { "wasm-build-all": "cli.mjs" },
+  "files": ["cli.mjs", "flavors.json", "bin/", "cmake/", "lib/", "patches/"],
+  "scripts": { "test": "test/run-all.sh" },
+  "dependencies": { "playwright": "1.63.0" },
+  "engines": { "node": ">=20" },
+  "license": "MIT"
+}

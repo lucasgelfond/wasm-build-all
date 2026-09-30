@@ -1,0 +1,35 @@
+{
+  "emsdk": "6.0.10",
+  "common": {
+    "compile": ["-m64", "-msimd128"],
+    "link": ["-sALLOW_MEMORY_GROWTH=1", "-sMAXIMUM_MEMORY=16GB", "-sSTACK_SIZE=8MB", "-sMALLOC=mimalloc"],
+    "nodeTest": ["-sNODERAWFS=1", "-sEXIT_RUNTIME=1"],
+    "webTest": ["-sFORCE_FILESYSTEM=1", "-sEXPORTED_RUNTIME_METHODS=FS", "-sEXIT_RUNTIME=1"]
+  },
+  "flavors": {
+    "mt": {
+      "description": "wasm64 + pthreads, main() on a worker (PROXY_TO_PTHREAD), JSPI, WasmFS. The primary build.",
+      "threads": true,
+      "compile": ["-fwasm-exceptions", "-sWASM_LEGACY_EXCEPTIONS=0", "-sSUPPORT_LONGJMP=wasm", "-pthread"],
+      "link": ["-sWASMFS=1", "-sJSPI=1", "-sDEFAULT_PTHREAD_STACK_SIZE=4MB", "-sPTHREAD_POOL_SIZE=8"],
+      "nodeTest": ["-sWASMFS=0", "-sENVIRONMENT=node,worker", "-sPROXY_TO_PTHREAD=1"],
+      "webTest": ["-sENVIRONMENT=web,worker", "-sPROXY_TO_PTHREAD=1"]
+    },
+    "st": {
+      "description": "wasm64, single-threaded, JSPI, JS filesystem. For pages without cross-origin isolation.",
+      "threads": false,
+      "compile": ["-fwasm-exceptions", "-sWASM_LEGACY_EXCEPTIONS=0", "-sSUPPORT_LONGJMP=wasm"],
+      "link": ["-sJSPI=1"],
+      "nodeTest": ["-sENVIRONMENT=node"],
+      "webTest": ["-sENVIRONMENT=web"]
+    },
+    "asyncify": {
+      "description": "wasm64, single-threaded, ASYNCIFY, JS-based exceptions and longjmp. For engines without JSPI (Binaryen's Asyncify can't handle wasm exception handling).",
+      "threads": false,
+      "compile": ["-fexceptions", "-sSUPPORT_LONGJMP=emscripten"],
+      "link": ["-sASYNCIFY=1", "-sASYNCIFY_STACK_SIZE=1048576"],
+      "nodeTest": ["-sENVIRONMENT=node"],
+      "webTest": ["-sENVIRONMENT=web"]
+    }
+  }
+}

@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Runs an Emscripten program (foo.js, or foo / foo.wasm next to foo.js) under emsdk's node with the V8 features
+# wasm-build-all needs. CMake's CMAKE_CROSSCOMPILING_EMULATOR and meson's exe_wrapper.
+set -euo pipefail
+emsdk="${WBA_EMSDK:-}"
+if [ -z "$emsdk" ]; then
+  gen="${WBA_CACHE:-$HOME/.cache/wasm-build-all}/gen/flavors.sh"
+  # shellcheck disable=SC1090
+  source "$gen"; emsdk="$WBA_EMSDK_DIR"
+fi
+node="$(ls -d "$emsdk"/node/*/bin/node | tail -1)"
+prog="$1"; shift
+case "$prog" in
+  *.wasm) prog="${prog%.wasm}.js" ;;
+  *.js|*.mjs) ;;
+  *) [ -f "$prog.js" ] && prog="$prog.js" ;;
+esac
+# Node writes fd 1 synchronously; on a pipe with a slow reader that fails with EAGAIN, so when stdout is a pipe
+# the output goes through a temp file.
+if [ -p /dev/stdout ]; then
+  tmp="$(mktemp -t wasm-run)"
+  set +e; "$node" --experimental-wasm-jspi --stack-size=8192 "$prog" "$@" > "$tmp"; rc=$?; set -e
+  cat "$tmp"; rm -f "$tmp"; exit $rc
+fi
+exec "$node" --experimental-wasm-jspi --stack-size=8192 "$prog" "$@"

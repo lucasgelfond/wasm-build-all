@@ -1,0 +1,5 @@
+/sysroot/
+/dist/
+/.cache/
+recipes/*/build/
+recipes/*/results/

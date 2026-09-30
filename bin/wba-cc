@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# Compiler wrapper. Two ways in:
+#   wasm64-<flavour>-emcc / wasm64-<flavour>-em++ (symlinks): CC/CXX for autotools, meson, scripts
+#   wba-launch <flavour> <emcc|em++> args...: CMake compiler/linker launcher (Emscripten's CMake platform file
+#     resets CMAKE_<LANG>_COMPILER during project(), so CMake can't point at the wrappers directly)
+# Always adds the flavour's ABI flags (from flavors.json via the generated $WBA_CACHE/gen/flavors.sh), so a build
+# that overrides CFLAGS/CMAKE_CXX_FLAGS/LDFLAGS can't drop them; on links it also adds the base link flags, which
+# flags later on the command line override. Outside mt it drops -pthread that build systems add on their own
+# (meson's threads dependency). In asyncify, links go through em++ (C code built with -fexceptions that has
+# cleanups needs libc++abi's __resumeException) and any .c sources on a one-step compile+link are compiled with
+# emcc first (em++ ignores -x c).
+set -euo pipefail
+self="$(basename "$0")"
+if [ "$self" = wba-launch ]; then
+  flavor="$1"; tool="$(basename "$2")"; shift 2
+else
+  flavor="${self#wasm64-}"; flavor="${flavor%-em*}"; tool="${self##*-}"
+fi
+gen="${WBA_CACHE:-$HOME/.cache/wasm-build-all}/gen/flavors.sh"
+[ -f "$gen" ] || { echo "wasm-build-all: $gen missing; run wasm-build-all setup" >&2; exit 2; }
+# shellcheck disable=SC1090
+source "$gen"
+EM="${WBA_EMSDK:-$WBA_EMSDK_DIR}/upstream/emscripten"
+eval "abi=(\"\${WBA_COMPILE_${flavor}[@]}\")"
+eval "base_link=(\"\${WBA_LINK_${flavor}[@]}\")"
+
+if [ "$flavor" != mt ]; then
+  kept=(); for a in "$@"; do case "$a" in -pthread|-pthreads) ;; *) kept+=("$a");; esac; done
+  set -- ${kept[@]+"${kept[@]}"}
+fi
+compiling=0; is_cxx=0
+[ "$tool" = "em++" ] && is_cxx=1
+for a in "$@"; do
+  case "$a" in
+    -c|-S|-E|-M|-MM) compiling=1 ;;
+    *.cc|*.cpp|*.cxx|*.C|*.c++|*.mm) is_cxx=1 ;;
+  esac
+done
+
+if [ "$flavor" = asyncify ] && [ $compiling = 0 ] && [ "$tool" = emcc ]; then
+  tmp=""; args=(); nonsrc=(); skip=0
+  for a in "$@"; do
+    if [ $skip = 1 ]; then skip=0; continue; fi
+    case "$a" in -o) skip=1; continue;; *.c) ;; *) nonsrc+=("$a");; esac
+  done
+  for a in "$@"; do
+    case "$a" in
+      *.c)
+        [ -n "$tmp" ] || { tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT; }
+        o="$tmp/$(basename "${a%.c}").$RANDOM.o"
+        "$EM/emcc" "${abi[@]}" ${nonsrc[@]+"${nonsrc[@]}"} -Wno-unused-command-line-argument -c "$a" -o "$o" || exit $?
+        args+=("$o") ;;
+      *) args+=("$a") ;;
+    esac
+  done
+  "$EM/em++" "${abi[@]}" "${base_link[@]}" ${args[@]+"${args[@]}"}
+  exit $?
+fi
+extra=()
+[ $compiling = 0 ] && extra+=("${base_link[@]}")
+exec "$EM/$tool" "${abi[@]}" ${extra[@]+"${extra[@]}"} "$@"
