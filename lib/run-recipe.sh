@@ -11,7 +11,9 @@ STAGE="$RECIPE/build/stage-wasm64-$WBA_FLAVOR"
 PREFIX="$STAGE$WBA_SYSROOT"
 NATIVE="$RECIPE/build/native"
 JOBS="${JOBS:-$(sysctl -n hw.ncpu 2>/dev/null || nproc)}"
-export NAME VERSION RECIPE SRC BUILD STAGE PREFIX NATIVE JOBS
+CACHE="$WBA_ROOT/.cache/downloads"   # shared download cache (sources, test corpora)
+mkdir -p "$CACHE"
+export NAME VERSION RECIPE SRC BUILD STAGE PREFIX NATIVE JOBS CACHE
 # shellcheck disable=SC1091
 source "$WBA_HOME/lib/helpers.sh"
 mkdir -p "$RECIPE/src" "$RECIPE/results" "$BUILD"
@@ -21,7 +23,7 @@ applicable=0
 for f in $WBA_RECIPE_FLAVORS; do [ "$f" = "$WBA_FLAVOR" ] && applicable=1; done
 
 fetch() {
-  local dl="$WBA_ROOT/.cache/downloads"; mkdir -p "$dl"
+  local dl="$CACHE"
   if [ -n "${WBA_SRC_PATH:-}" ]; then   # a local source tree (tests, vendored code): used in place
     return 0
   fi

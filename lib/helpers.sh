@@ -1,6 +1,7 @@
 # Helpers available to a recipe's build.sh (its build() and test() hooks). Sourced by lib/run-recipe.sh after the
 # flavour's environment (wasm-build-all env) and the recipe's variables are set:
-#   NAME VERSION RECIPE (the recipe directory) SRC BUILD STAGE PREFIX NATIVE JOBS
+#   NAME VERSION RECIPE (the recipe directory) SRC BUILD STAGE PREFIX NATIVE JOBS, and CACHE (download cache
+#   for extra test data)
 # Building
 #   wba_cmake [-S dir] [cmake args...]     configure + build + install (into $STAGE) with the wasm-build-all toolchain
 #   wba_configure [configure args...]      autotools configure + make + make install (into $STAGE)
