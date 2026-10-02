@@ -1,0 +1,30 @@
+# CI for a single-recipe repo made by `wasm-build-all split`: lint, build every flavour, run the full test suite
+# under node and in Chromium/Firefox/WebKit plus the native baseline, fail on regressions against the committed
+# results, and attach the packages to a GitHub release on a v* tag.
+name: ci
+on: [push, pull_request]
+permissions:
+  contents: write
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: sudo apt-get update && sudo apt-get install -y ninja-build cmake meson autoconf automake libtool pkg-config shellcheck zstd brotli xz-utils bzip2
+      - run: npm install
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/wasm-build-all
+          key: wba-${{ hashFiles('package-lock.json', 'package.json') }}
+      - run: npx wasm-build-all setup --browsers
+      - run: npx wasm-build-all install-packages --all
+        env: { GH_TOKEN: "${{ github.token }}" }
+      - run: npx wasm-build-all all --all
+      - run: npx wasm-build-all check --all
+      - run: npx wasm-build-all compare --all
+      - run: npx wasm-build-all package --all
+      - if: startsWith(github.ref, 'refs/tags/v')
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: gh release create "$GITHUB_REF_NAME" dist/*.tar.gz recipes/*/results/*.json --title "$GITHUB_REF_NAME"

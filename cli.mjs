@@ -8,6 +8,7 @@ import { HOME, FLAVORS, spec, project, flavor } from './lib/config.mjs';
 import { setup } from './lib/setup.mjs';
 import { envFor, exportsFor } from './lib/env.mjs';
 import { compare, complete, table, resultsFile } from './lib/results.mjs';
+import { split, installPackages, publish, repoName } from './lib/split.mjs';
 
 const USAGE = `usage: wasm-build-all <command> [args]
 
@@ -21,6 +22,9 @@ const USAGE = `usage: wasm-build-all <command> [args]
   report [--all]                        Markdown table of every recipe's results
   table <recipe>                        one recipe's results table
   init <name>                           scaffold <recipes>/<name>/{recipe.json,build.sh}
+  install-packages <recipe...|--all>    fetch required recipes' packages from their <dep>-wasm64 GitHub releases
+  split <recipe> [--dest DIR]           make a standalone <recipe>-wasm64 repo (recipe, CI, README with results)
+  publish <recipe> [--dest DIR]         split, create the public GitHub repo, push, release the local packages
   run <prog.js> [args]                  run a wasm program under node (same as bin/wasm-run)
 
 flavours: ${FLAVORS.map((f) => `${f} (${spec.flavors[f].description})`).join('\n           ')}`;
@@ -28,7 +32,7 @@ flavours: ${FLAVORS.map((f) => `${f} (${spec.flavors[f].description})`).join('\n
 const die = (msg) => { console.error(msg); process.exit(1); };
 const argv = process.argv.slice(2);
 const cmd = argv.shift();
-const opts = { flavor: 'all', jobs: null, base: 'HEAD', all: false, browsers: false };
+const opts = { flavor: 'all', jobs: null, base: 'HEAD', all: false, browsers: false, dest: null };
 const names = [];
 for (let i = 0; i < argv.length; i++) {
   const a = argv[i];
@@ -37,6 +41,7 @@ for (let i = 0; i < argv.length; i++) {
   else if (a === '--base') opts.base = argv[++i];
   else if (a === '--all') opts.all = true;
   else if (a === '--browsers') opts.browsers = true;
+  else if (a === '--dest') opts.dest = argv[++i];
   else names.push(a);
 }
 
@@ -170,6 +175,21 @@ test() {
 }
 `);
     console.log(`created ${path.relative(process.cwd(), dir)}/{recipe.json,build.sh}`);
+    break;
+  }
+  case 'install-packages': {
+    const proj = needProject();
+    for (const n of selected(proj)) installPackages(proj, recipe(proj, n).meta);
+    break;
+  }
+  case 'split': case 'publish': {
+    const proj = needProject();
+    const n = names[0] || die(`usage: wasm-build-all ${cmd} <recipe>`);
+    const c = complete(n, recipe(proj, n).dir);
+    if (!c.ok) die(`${n}: results incomplete (${c.problems.join('; ')})`);
+    const dir = split(proj, n, opts.dest);
+    console.log(`${repoName(n)} at ${dir}`);
+    if (cmd === 'publish') publish(proj, n, dir);
     break;
   }
   case 'run': {
